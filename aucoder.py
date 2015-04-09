@@ -70,6 +70,9 @@ def read_audio_to_numpy(filename):
         (samplerate,signal) = wav.read(filename)
     return (samplerate,signal)
 
+# For the input file, find frames that are nearest in the corpus.
+# Return a list of the following format:
+#   (input frame start ms, input frame end ms, corpus filename, corpus frame start ms, corpus frame end ms)
 def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
     input_nframes = input_mfcc.shape[0]
@@ -81,20 +84,25 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
             corpus.append((corpus_filename, corpus_mfcc))
 
     # For each frame, find the nearest frame
-    near_frame_idxs = []
+    near_frames = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
+        best_frames = []
         for (corpus_filename, corpus_mfcc) in corpus:
             # Don't allow it to use the same exact frame
             if input_filename == corpus_filename: ignore_frame_idx = frame_idx
             else: ignore_frame_idx = None
-            print corpus_filename, find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx)
-
-    #print near_frame_idxs
-    frame_locations = []
-    for input_idx, corpus_idx in enumerate(near_frame_idxs):
-        frame_locations.append((winstep * input_idx, winstep * corpus_idx, winstep * corpus_idx + winlen))
-    return frame_locations
+            near_idx, near_dist = find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx)
+            best_frames.append((near_dist,
+                                winstep * frame_idx,
+                                winstep * frame_idx + winlen,
+                                corpus_filename,
+                                winstep * near_idx,
+                                winstep * near_idx + winlen))
+        best_frames.sort()
+        print best_frames[0]
+        near_frames.append(best_frames[0][1:])
+    return near_frames
       
 def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
     # Sum of squared distances (euclidean) against every frame:
