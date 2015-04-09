@@ -8,8 +8,8 @@ import scipy.io.wavfile as wav
 import numpy as n
 from pydub import AudioSegment
 
-#WINLEN = 0.025      # 25 ms
-WINLEN = 0.25      # 250 ms
+WINLEN = 0.025      # 25 ms
+#WINLEN = 0.25      # 250 ms
 WINSTEP = WINLEN    # Don't allow them to overlap
 
 def find_nearest_frames(filename):
@@ -22,8 +22,8 @@ def find_nearest_frames(filename):
     # TODO: Multi-channel
     sig = n.mean(sig, axis=1)
 
-#    # 30 seconds
-#    sig = sig[:1323000]
+    # 30 seconds
+    sig = sig[:1323000]
     
     mfcc_feat = mfcc(sig, rate, winlen=WINLEN, winstep=WINSTEP)
     print "Created MFCC with shape", mfcc_feat.shape
