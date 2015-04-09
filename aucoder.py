@@ -8,12 +8,13 @@ import tempfile
 from features import mfcc
 from features import logfbank
 import scipy.io.wavfile as wav
+from scikits.samplerate import resample
 import numpy as n
 from pydub import AudioSegment
 
 # We can't work with files that don't have this SAMPLERATE
 # TODO convert everything to same samplerate
-SAMPLERATE = 44100
+SAMPLERATE = 44100.
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
     samplerate = SAMPLERATE
@@ -51,6 +52,8 @@ def perform_mfcc_on_filename(filename, opts):
     # Mix to mono
     # TODO: Multi-channel
     sig = n.mean(sig, axis=1)
+    if (samplerate != SAMPLERATE):
+        sig = resample(sig, SAMPLERATE/samplerate, 'linear')
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
