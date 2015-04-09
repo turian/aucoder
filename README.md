@@ -1,12 +1,27 @@
 aucoder
 =======
 
+"Cover" an audio sample using another audio sample.
 
-Convert mp3s to wav to start:
+Use this audio library:
 
-ffmpeg -i 01\ bohemian\ rhapsody.mp3  01\ bohemian\ rhapsody.wav
+https://github.com/jameslyons/python_speech_features
+
+```
+ffmpeg -i file.mp3 file.wav
+```
 
 TODO
 ----
 
-* Automaticall covert wav to mp3
+* Automatically covert wav to mp3
+
+* Requirements.txt
+
+* Try librosa:
+
+```
+pip install librosa scikits.samplerate
+```
+
+Convert mp3s to wav to start:
