@@ -74,34 +74,37 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
     input_nframes = input_mfcc.shape[0]
 
+    corpus = []
     for corpus_filename in corpus_filenames:
         corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
+        if corpus_mfcc is not None:
+            corpus.append((corpus_filename, corpus_mfcc))
 
     # For each frame, find the nearest frame
     near_frame_idxs = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
-        
-        # Sum of squared distances (euclidean) against every frame:
-        frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
-        if input_filename == corpus_filename:
-            # Remove the frame corresponding to this index
-            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
-        else:
-            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
-        dist_idx.sort()
-    
-        near_frame_dist = dist_idx[0][0]
-        near_frame_idx = dist_idx[0][1]
-    
-        print "Nearest frame to frame #%d is frame #%d (dist = %.3f)" % (frame_idx, near_frame_idx, near_frame_dist)
-        near_frame_idxs.append(near_frame_idx)
+        for (corpus_filename, corpus_mfcc) in corpus:
+            # Don't allow it to use the same exact frame
+            if input_filename == corpus_filename: ignore_frame_idx = frame_idx
+            else: ignore_frame_idx = None
+            print corpus_filename, find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx)
 
     #print near_frame_idxs
     frame_locations = []
     for input_idx, corpus_idx in enumerate(near_frame_idxs):
         frame_locations.append((winstep * input_idx, winstep * corpus_idx, winstep * corpus_idx + winlen))
     return frame_locations
+      
+def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
+    # Sum of squared distances (euclidean) against every frame:
+    frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
+    dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != ignore_frame_idx]
+    dist_idx.sort()
+    
+    near_frame_dist = dist_idx[0][0]
+    near_frame_idx = dist_idx[0][1]
+    return near_frame_idx, near_frame_dist
 
 # Simple version of redub, that assumes all frame_locations are contiguous
 def redub(input_filename, frame_locations, output_filename):
