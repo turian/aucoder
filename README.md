@@ -3,6 +3,8 @@ aucoder
 
 "Cover" an audio sample using another audio sample.
 
+Need ffmpeg.
+
 Use this audio library:
 
 https://github.com/jameslyons/python_speech_features

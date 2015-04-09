@@ -29,6 +29,7 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
 #    sig = sig[:1323000]
     
     mfcc_feat = mfcc(sig, rate, winlen=winlen, winstep=winstep)
+
     print "Created MFCC with shape", mfcc_feat.shape
     #nframes = mfcc_feat.shape[0]
     return mfcc_feat
@@ -43,9 +44,11 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
         
         # Sum of squared distances (euclidean) against every frame:
         frame_dist = n.sqrt(n.square(corpus_mfcc - this_frame).sum(axis=1))
-        # Remove the frame corresponding to this index
-        dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
-#        dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
+        if input_filename == corpus_filename:
+            # Remove the frame corresponding to this index
+            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
+        else:
+            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
         dist_idx.sort()
     
         near_frame_dist = dist_idx[0][0]
@@ -60,7 +63,7 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
         frame_locations.append((winstep * idx, winstep * idx + winlen))
     return frame_locations
 
-def redub(input_filename, frame_locations, output_filename):
+def redub(orig_filename, input_filename, frame_locations, output_filename):
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
     fragments = []
@@ -71,6 +74,13 @@ def redub(input_filename, frame_locations, output_filename):
         fragments.append(fragment)
     newsong = fragments[0]
     for f in fragments[1:]: newsong += f
+
+    # Now, overlay the original audio at lower volume
+    origsong = AudioSegment.from_wav(orig_filename)
+    print "Read audio from %s" % orig_filename
+#    origsong = origsong.apply_gain(-10)
+    newsong = newsong.overlay(origsong)
+
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
 
@@ -89,4 +99,4 @@ if __name__ == "__main__":
     winstep = float(args.winstep or args.winlen) / 1000.0
 
     frame_locations = find_nearest_frames(input_wav, corpus_wav, winlen, winstep)
-    redub(input_wav, frame_locations, args.output)
+    redub(input_wav, corpus_wav, frame_locations, args.output)
