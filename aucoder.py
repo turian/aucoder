@@ -97,6 +97,7 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
             corpus.append((corpus_filename, corpus_mfcc))
 
     # For each frame, find the nearest frame
+    dists = []
     near_frames = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
@@ -115,6 +116,9 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
         best_frames.sort()
         print best_frames[0]
         near_frames.append(best_frames[0][1:])
+        dists.append(best_frames[0][0])
+    dists = n.array(dists)
+    print "DISTANCE median=%.3f, mean=%.3f" % (n.median(dists), n.mean(dists))
     return near_frames
       
 def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
@@ -172,7 +176,6 @@ def redub_overlay(frame_locations, output_filename):
             actual_start_sec = corpus_start_sec + (cut_start - write_start_sec)
             actual_end_sec = min(actual_start_sec + cut_length, corpus_end_sec)
 
-            print (cut_start, cut_end, corpus_filename, actual_start_sec, actual_end_sec)
             segment = get_audiosegment(corpus_filename, actual_start_sec, actual_end_sec)
             fragment = fragment.overlay(segment)
 
