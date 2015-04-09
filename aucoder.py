@@ -33,7 +33,11 @@ def find_nearest_frames(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
-    parser.add_argument('--input', help='Input audio signal to be covered')
+    parser.add_argument('--input', dest='input', help='Input audio signal to be covered')
     #parser.add_argument('--corpus', help='MP3 of audio to use as samples')
 
     args = parser.parse_args()
+    if args.input is not None:
+        find_nearest_frames(args.input)
+    else:
+        print "--input argument missing"

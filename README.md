@@ -16,8 +16,6 @@ TODO
 
 * Automatically covert wav to mp3
 
-* Requirements.txt
-
 * Try librosa:
 
 ```
