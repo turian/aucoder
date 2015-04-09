@@ -12,6 +12,13 @@ WINLEN = 0.025      # 25 ms
 #WINLEN = 0.25      # 250 ms
 WINSTEP = WINLEN    # Don't allow them to overlap
 
+def convert_to_wav(filename):
+    if filename.endswith(".mp3"):
+        song = AudioSegment.from_mp3(filename)
+        filename = filename.replace(".mp3", ".wav")
+        song.export(filename, format="wav")
+    return filename
+
 def find_nearest_frames(filename):
     # TODO convert everything to same samplerate
     (rate,sig) = wav.read(filename)
@@ -54,6 +61,7 @@ def find_nearest_frames(filename):
     return frame_locations
 
 def redub(input_filename, frame_locations, output_filename):
+    print input_filename
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
     fragments = []
@@ -73,5 +81,6 @@ if __name__ == "__main__":
     #parser.add_argument('--corpus', help='MP3 of audio to use as samples')
 
     args = parser.parse_args()
-    frame_locations = find_nearest_frames(args.input)
-    redub(args.input, frame_locations, "foo.mp3")
+    filename = convert_to_wav(args.input)
+    frame_locations = find_nearest_frames(filename)
+    redub(filename, frame_locations, "foo.mp3")
