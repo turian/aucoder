@@ -7,6 +7,8 @@ Use this audio library:
 
 https://github.com/jameslyons/python_speech_features
 
+and pydub
+
 ```
 ffmpeg -i file.mp3 file.wav
 ```
