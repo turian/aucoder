@@ -116,14 +116,14 @@ def redub(orig_filename, input_filename, frame_locations, output_filename):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
     parser.add_argument('--input', help='Input audio signal to be covered (wav or mp3)')
-    parser.add_argument('--corpus', help='Audio file to use as samples (wav or mp3)')
     parser.add_argument('--output', help='Output filename (mp3)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
+    parser.add_argument('--corpus', help='Audio file(s) to use as samples (wav or mp3)', nargs='*')
 
     args = parser.parse_args()
     input_wav = convert_to_wav(args.input)
-    corpus_wav = convert_to_wav(args.corpus)
+    corpus_wav = convert_to_wav(args.corpus[0])
     winlen = float(args.winlen) / 1000.0
     winstep = float(args.winstep or args.winlen) / 1000.0
 
