@@ -10,6 +10,14 @@ from features import logfbank
 import scipy.io.wavfile as wav
 import numpy as n
 from pydub import AudioSegment
+from itertools import tee, izip
+
+def window(iterable, size):
+    iters = tee(iterable, size)
+    for i in xrange(1, size):
+        for each in iters[i:]:
+            next(each, None)
+    return izip(*iters)
 
 # We can't work with files that don't have this SAMPLERATE
 # TODO convert everything to same samplerate
@@ -141,20 +149,33 @@ def full_audiosegment(filename):
     return full_audiosegment_cache[filename]
 
 # Version of redub that is slow, but allows files to overlap
-def redub_overlay(input_filename, frame_locations, output_filename):
-    song = AudioSegment.from_mp3(input_filename)
-    print "Read audio from %s" % input_filename
+def redub_overlay(frame_locations, output_filename):
+    start_points = set(round(frame[0], 6) for frame in frame_locations)
+    end_points = set(round(frame[1], 6) for frame in frame_locations)
+    cut_points = sorted(start_points.union(end_points))
+    cuts = window(cut_points, 2)
 
-    newsong = AudioSegment.silent(duration=len(origsong))
-    for (pos, start_sec, end_sec) in frame_locations:
-        pos_ms = int(pos * 1000 + 0.5)
-        start_ms = int(start_sec * 1000 + 0.5)
-        end_ms = int(end_sec * 1000 + 0.5)
-        print (pos_ms, start_ms, end_ms)
+    fragments = []
+    for (cut_start, cut_end) in cuts:
+        cut_length = 1000 * (cut_end - cut_start)
 
-        fragment = song[start_ms:end_ms]
-        newsong= newsong.overlay(fragment, position=pos_ms)
+        fragment = AudioSegment.silent(duration=cut_length)
+        for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
+            if write_start_sec >= cut_end or write_end_sec <= cut_start:
+                continue
 
+            actual_start_sec = corpus_start_sec + (cut_start - write_start_sec)
+            actual_end_sec = min(actual_start_sec + cut_length, corpus_end_sec)
+
+            print (cut_start, cut_end, corpus_filename, actual_start_sec, actual_end_sec)
+            segment = get_audiosegment(corpus_filename, actual_start_sec, actual_end_sec)
+            fragment = fragment.overlay(segment)
+
+        fragments.append(fragment)
+    
+    newsong = fragments[0]
+    for f in fragments[1:]: newsong += f
+    print "Composed %d fragments" % len(fragments)
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
 
@@ -176,4 +197,4 @@ if __name__ == "__main__":
     assert args.output.endswith(".mp3")
 
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub(frame_locations, args.output)
+    redub_overlay(frame_locations, args.output)
