@@ -43,7 +43,7 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
         this_frame = input_mfcc[frame_idx]
         
         # Sum of squared distances (euclidean) against every frame:
-        frame_dist = n.sqrt(n.square(corpus_mfcc - this_frame).sum(axis=1))
+        frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
         if input_filename == corpus_filename:
             # Remove the frame corresponding to this index
             dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
