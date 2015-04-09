@@ -72,7 +72,7 @@ def read_audio_to_numpy(filename):
 
 # For the input file, find frames that are nearest in the corpus.
 # Return a list of the following format:
-#   (input frame start ms, input frame end ms, corpus filename, corpus frame start ms, corpus frame end ms)
+#   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
 def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
     input_nframes = input_mfcc.shape[0]
@@ -115,19 +115,30 @@ def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
     return near_frame_idx, near_frame_dist
 
 # Simple version of redub, that assumes all frame_locations are contiguous
-def redub(input_filename, frame_locations, output_filename):
-    song = AudioSegment.from_mp3(input_filename)
-    print "Read audio from %s" % input_filename
+# Frame locations has the following format
+#   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
+def redub(frame_locations, output_filename):
     fragments = []
-    for (write_start_sec, corpus_start_sec, corpus_end_sec) in frame_locations:
-        start_ms = int(corpus_start_sec * 1000 + 0.5)
-        end_ms = int(corpus_end_sec * 1000 + 0.5)
-        fragment = song[start_ms:end_ms]
-        fragments.append(fragment)
+    for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
+        fragments.append(get_audiosegment(corpus_filename, corpus_start_sec, corpus_end_sec))
     newsong = fragments[0]
     for f in fragments[1:]: newsong += f
+    print "Composed %d fragments" % len(fragments)
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
+
+def get_audiosegment(filename, start_sec, end_sec):
+    start_ms = int(start_sec * 1000 + 0.5)
+    end_ms = int(end_sec * 1000 + 0.5)
+    return full_audiosegment(filename)[start_ms:end_ms]
+
+full_audiosegment_cache = {}
+def full_audiosegment(filename):
+    global full_audiosegment_cache
+    if filename not in full_audiosegment_cache:
+        full_audiosegment_cache[filename] = AudioSegment.from_mp3(filename)
+        print "Read audio from %s" % filename
+    return full_audiosegment_cache[filename]
 
 # Version of redub that is slow, but allows files to overlap
 def redub_overlay(input_filename, frame_locations, output_filename):
@@ -165,4 +176,4 @@ if __name__ == "__main__":
     assert args.output.endswith(".mp3")
 
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub(args.corpus[0], frame_locations, args.output)
+    redub(frame_locations, args.output)
