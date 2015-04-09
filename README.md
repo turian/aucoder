@@ -5,6 +5,10 @@ aucoder
 
 Need ffmpeg.
 
+brew install libsamplerate
+
+pip install sckits.samplerate
+
 Use this audio library:
 
 https://github.com/jameslyons/python_speech_features

@@ -40,6 +40,7 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
 def perform_mfcc_on_filename(filename, opts):
     (samplerate, sig) = read_audio_to_numpy(filename)
     nchannels = sig.shape[1]
+    print samplerate
     assert samplerate == SAMPLERATE
 
     print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, sig.shape[1])
@@ -66,10 +67,13 @@ def read_audio_to_numpy(filename):
         (samplerate,signal) = wav.read(filename)
     return (samplerate,signal)
 
-def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
+def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
     input_nframes = input_mfcc.shape[0]
-    corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
+
+    for corpus_filename in corpus_filenames:
+        corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
+
     # For each frame, find the nearest frame
     near_frame_idxs = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
@@ -150,10 +154,9 @@ if __name__ == "__main__":
     winstep = float(args.winstep or args.winlen) / 1000.0
 
     assert args.input.endswith(".mp3")
-    for c in args.corpus: assert c.endswith(".mp3")
+    for c in args.corpus:
+        assert c.endswith(".mp3")
     assert args.output.endswith(".mp3")
 
-    frame_locations = find_nearest_frames(args.input, args.corpus[0], winlen, winstep)
+    frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
     redub(args.input, args.corpus[0], frame_locations, args.output)
-
-# Assert mp3 filename
