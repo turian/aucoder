@@ -35,7 +35,8 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
     else:
         print "Reading cache from %s" % cache_filename
         mfcc_feat = cPickle.load(open(cache_filename, "rb"))
-    print "%s has MFCC with shape %s" % (filename, repr(mfcc_feat.shape))
+    if mfcc_feat is not None:
+        print "%s has MFCC with shape %s" % (filename, repr(mfcc_feat.shape))
     return mfcc_feat
 
 def perform_mfcc_on_filename(filename, opts):
@@ -96,19 +97,20 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
         print "Nearest frame to frame #%d is frame #%d (dist = %.3f)" % (frame_idx, near_frame_idx, near_frame_dist)
         near_frame_idxs.append(near_frame_idx)
 
-    print near_frame_idxs
+    #print near_frame_idxs
     frame_locations = []
     for input_idx, corpus_idx in enumerate(near_frame_idxs):
         frame_locations.append((winstep * input_idx, winstep * corpus_idx, winstep * corpus_idx + winlen))
     return frame_locations
 
+# Simple version of redub, that assumes all frame_locations are contiguous
 def redub(input_filename, frame_locations, output_filename):
-    song = AudioSegment.from_wav(input_filename)
+    song = AudioSegment.from_mp3(input_filename)
     print "Read audio from %s" % input_filename
     fragments = []
-    for (start_sec, end_sec) in frame_locations:
-        start_ms = int(start_sec * 1000 + 0.5)
-        end_ms = int(end_sec * 1000 + 0.5)
+    for (write_start_sec, corpus_start_sec, corpus_end_sec) in frame_locations:
+        start_ms = int(corpus_start_sec * 1000 + 0.5)
+        end_ms = int(corpus_end_sec * 1000 + 0.5)
         fragment = song[start_ms:end_ms]
         fragments.append(fragment)
     newsong = fragments[0]
@@ -117,10 +119,7 @@ def redub(input_filename, frame_locations, output_filename):
     print "Wrote new song to %s" % output_filename
 
 # Version of redub that is slow, but allows files to overlap
-def redub_overlay(orig_filename, input_filename, frame_locations, output_filename):
-    origsong = AudioSegment.from_mp3(orig_filename)
-    print "Read audio from %s" % orig_filename
-
+def redub_overlay(input_filename, frame_locations, output_filename):
     song = AudioSegment.from_mp3(input_filename)
     print "Read audio from %s" % input_filename
 
@@ -133,12 +132,6 @@ def redub_overlay(orig_filename, input_filename, frame_locations, output_filenam
 
         fragment = song[start_ms:end_ms]
         newsong= newsong.overlay(fragment, position=pos_ms)
-
-    # Now, overlay the original audio at lower volume
-    #origsong = AudioSegment.from_mp3(orig_filename)
-    #print "Read audio from %s" % orig_filename
-    ##origsong = origsong.apply_gain(-10)
-    #newsong = newsong.overlay(origsong)
 
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
@@ -161,4 +154,4 @@ if __name__ == "__main__":
     assert args.output.endswith(".mp3")
 
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub(args.input, args.corpus[0], frame_locations, args.output)
+    redub(args.corpus[0], frame_locations, args.output)
