@@ -29,8 +29,9 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
     if not os.path.exists(cache_filename):
         print "No cached version for %s" % filename
         mfcc_feat = perform_mfcc_on_filename(filename, opts)
-        cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
-        print "Wrote cache to %s" % cache_filename
+        if mfcc_feat is not None:
+            cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
+            print "Wrote cache to %s" % cache_filename
     else:
         print "Reading cache from %s" % cache_filename
         mfcc_feat = cPickle.load(open(cache_filename, "rb"))
@@ -40,8 +41,9 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
 def perform_mfcc_on_filename(filename, opts):
     (samplerate, sig) = read_audio_to_numpy(filename)
     nchannels = sig.shape[1]
-    print samplerate
-    assert samplerate == SAMPLERATE
+    if samplerate != SAMPLERATE:
+        print "Sorry, %s has wrong samplerate %d (!= %d)" % (filename, samplerate, SAMPLERATE)
+        return None
 
     print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, sig.shape[1])
 
