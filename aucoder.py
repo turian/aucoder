@@ -165,6 +165,8 @@ def redub_overlay(frame_locations, output_filename):
         cut_length = 1000 * (cut_end - cut_start)
 
         fragment = AudioSegment.silent(duration=cut_length)
+        # TODO: this nested loop can be a bit slow, but we're always searching in
+        #       one direction. We could speed this up with some trickery.
         for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
             if write_start_sec >= cut_end or write_end_sec <= cut_start:
                 continue
