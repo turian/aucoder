@@ -59,27 +59,26 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
 
     print near_frame_idxs
     frame_locations = []
-    for idx in near_frame_idxs:
-        frame_locations.append((winstep * idx, winstep * idx + winlen))
+    for input_idx, corpus_idx in enumerate(near_frame_idxs):
+        frame_locations.append((winstep * input_idx, winstep * corpus_idx, winstep * corpus_idx + winlen))
     return frame_locations
 
-def redub(orig_filename, input_filename, frame_locations, output_filename, winstep):
+def redub(orig_filename, input_filename, frame_locations, output_filename):
     origsong = AudioSegment.from_wav(orig_filename)
     print "Read audio from %s" % orig_filename
 
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
 
-    pos = 0
     newsong = AudioSegment.silent(duration=len(origsong))
-    for (start_sec, end_sec) in frame_locations:
+    for (pos, start_sec, end_sec) in frame_locations:
+        pos_ms = int(pos * 1000 + 0.5)
         start_ms = int(start_sec * 1000 + 0.5)
         end_ms = int(end_sec * 1000 + 0.5)
-        print (pos, start_ms, end_ms)
+        print (pos_ms, start_ms, end_ms)
 
         fragment = song[start_ms:end_ms]
-        newsong= newsong.overlay(fragment, position=pos)
-        pos += int(winstep * 1000)
+        newsong= newsong.overlay(fragment, position=pos_ms)
 
     # Now, overlay the original audio at lower volume
     #origsong = AudioSegment.from_wav(orig_filename)
@@ -105,4 +104,4 @@ if __name__ == "__main__":
     winstep = float(args.winstep or args.winlen) / 1000.0
 
     frame_locations = find_nearest_frames(input_wav, corpus_wav, winlen, winstep)
-    redub(input_wav, corpus_wav, frame_locations, args.output, winstep)
+    redub(input_wav, corpus_wav, frame_locations, args.output)
