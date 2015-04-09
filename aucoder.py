@@ -53,8 +53,9 @@ def perform_mfcc_on_filename(filename, opts):
     print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, nchannels)
     
     if (samplerate != desired_samplerate):
-        sig = resample(sig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
-        print("Resampled file from %d to %d" % (samplerate, desired_samplerate))
+        origsig = sig
+        sig = resample(origsig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
+        print("Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape))
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
