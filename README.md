@@ -17,8 +17,4 @@ Install packages in `requirements.txt`
 TODO
 ----
 
-* Try librosa:
-
-```
-pip install librosa scikits.samplerate
-```
+* Try librosa

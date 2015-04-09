@@ -12,12 +12,12 @@ from scikits.samplerate import resample
 import numpy as n
 from pydub import AudioSegment
 
-# We can't work with files that don't have this SAMPLERATE
+# We can't work with files that don't have this desired_samplerate
 # TODO convert everything to same samplerate
-SAMPLERATE = 44100.
+desired_samplerate = 44100
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
-    samplerate = SAMPLERATE
+    samplerate = desired_samplerate
     opts = {"samplerate": samplerate,
             "winlen": winlen,
             "winstep": winstep,
@@ -52,9 +52,9 @@ def perform_mfcc_on_filename(filename, opts):
         nchannels = 1
     print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, nchannels)
     
-    if (samplerate != SAMPLERATE):
-        sig = resample(sig, SAMPLERATE/samplerate, 'linear')
-        print("Resampled")
+    if (samplerate != desired_samplerate):
+        sig = resample(sig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
+        print("Resampled file from %d to %d" % (samplerate, desired_samplerate))
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
