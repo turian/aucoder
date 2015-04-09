@@ -3,6 +3,7 @@
 import argparse
 import os.path
 import cPickle
+import tempfile
 
 from features import mfcc
 from features import logfbank
@@ -13,13 +14,6 @@ from pydub import AudioSegment
 # We can't work with files that don't have this SAMPLERATE
 # TODO convert everything to same samplerate
 SAMPLERATE = 44100
-
-def convert_to_wav(filename):
-    if filename.endswith(".mp3"):
-        song = AudioSegment.from_mp3(filename)
-        filename = filename.replace(".mp3", ".wav")
-        song.export(filename, format="wav")
-    return filename
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
     samplerate = SAMPLERATE
@@ -44,7 +38,7 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
     return mfcc_feat
 
 def perform_mfcc_on_filename(filename, opts):
-    (samplerate,sig) = wav.read(filename)
+    (samplerate, sig) = read_audio_to_numpy(filename)
     nchannels = sig.shape[1]
     assert samplerate == SAMPLERATE
 
@@ -56,6 +50,20 @@ def perform_mfcc_on_filename(filename, opts):
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
+
+def read_audio_to_numpy(filename):
+    if filename.endswith(".mp3"):
+        song = AudioSegment.from_mp3(filename)
+        filename = filename.replace(".mp3", ".wav")
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav")
+        song.export(tmp.name, format="wav")
+
+        (samplerate,signal) = wav.read(filename)
+        tmp.close()
+    else:
+        assert filename.endswith(".wav")
+        (samplerate,signal) = wav.read(filename)
+    return (samplerate,signal)
 
 def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
@@ -103,10 +111,10 @@ def redub(input_filename, frame_locations, output_filename):
 
 # Version of redub that is slow, but allows files to overlap
 def redub_overlay(orig_filename, input_filename, frame_locations, output_filename):
-    origsong = AudioSegment.from_wav(orig_filename)
+    origsong = AudioSegment.from_mp3(orig_filename)
     print "Read audio from %s" % orig_filename
 
-    song = AudioSegment.from_wav(input_filename)
+    song = AudioSegment.from_mp3(input_filename)
     print "Read audio from %s" % input_filename
 
     newsong = AudioSegment.silent(duration=len(origsong))
@@ -120,7 +128,7 @@ def redub_overlay(orig_filename, input_filename, frame_locations, output_filenam
         newsong= newsong.overlay(fragment, position=pos_ms)
 
     # Now, overlay the original audio at lower volume
-    #origsong = AudioSegment.from_wav(orig_filename)
+    #origsong = AudioSegment.from_mp3(orig_filename)
     #print "Read audio from %s" % orig_filename
     ##origsong = origsong.apply_gain(-10)
     #newsong = newsong.overlay(origsong)
@@ -130,17 +138,17 @@ def redub_overlay(orig_filename, input_filename, frame_locations, output_filenam
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
-    parser.add_argument('--input', help='Input audio signal to be covered (wav or mp3)')
+    parser.add_argument('--input', help='Input audio signal to be covered (mp3)')
     parser.add_argument('--output', help='Output filename (mp3)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
-    parser.add_argument('--corpus', help='Audio file(s) to use as samples (wav or mp3)', nargs='*')
+    parser.add_argument('--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
 
     args = parser.parse_args()
-    input_wav = convert_to_wav(args.input)
-    corpus_wav = convert_to_wav(args.corpus[0])
     winlen = float(args.winlen) / 1000.0
     winstep = float(args.winstep or args.winlen) / 1000.0
 
-    frame_locations = find_nearest_frames(input_wav, corpus_wav, winlen, winstep)
-    redub(input_wav, corpus_wav, frame_locations, args.output)
+    frame_locations = find_nearest_frames(args.input, args.corpus[0], winlen, winstep)
+    redub(args.input, args.corpus[0], frame_locations, args.output)
+
+# Assert mp3 filename
