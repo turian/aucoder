@@ -63,23 +63,29 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
         frame_locations.append((winstep * idx, winstep * idx + winlen))
     return frame_locations
 
-def redub(orig_filename, input_filename, frame_locations, output_filename):
+def redub(orig_filename, input_filename, frame_locations, output_filename, winstep):
+    origsong = AudioSegment.from_wav(orig_filename)
+    print "Read audio from %s" % orig_filename
+
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
-    fragments = []
+
+    pos = 0
+    newsong = AudioSegment.silent(duration=len(origsong))
     for (start_sec, end_sec) in frame_locations:
         start_ms = int(start_sec * 1000 + 0.5)
         end_ms = int(end_sec * 1000 + 0.5)
+        print (pos, start_ms, end_ms)
+
         fragment = song[start_ms:end_ms]
-        fragments.append(fragment)
-    newsong = fragments[0]
-    for f in fragments[1:]: newsong += f
+        newsong= newsong.overlay(fragment, position=pos)
+        pos += int(winstep * 1000)
 
     # Now, overlay the original audio at lower volume
-    origsong = AudioSegment.from_wav(orig_filename)
-    print "Read audio from %s" % orig_filename
-#    origsong = origsong.apply_gain(-10)
-    newsong = newsong.overlay(origsong)
+    #origsong = AudioSegment.from_wav(orig_filename)
+    #print "Read audio from %s" % orig_filename
+    #origsong = origsong.apply_gain(-10)
+    #newsong = newsong.overlay(origsong)
 
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
@@ -99,4 +105,4 @@ if __name__ == "__main__":
     winstep = float(args.winstep or args.winlen) / 1000.0
 
     frame_locations = find_nearest_frames(input_wav, corpus_wav, winlen, winstep)
-    redub(input_wav, corpus_wav, frame_locations, args.output)
+    redub(input_wav, corpus_wav, frame_locations, args.output, winstep)
