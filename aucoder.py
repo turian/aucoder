@@ -87,7 +87,7 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
         frame_locations.append((winstep * input_idx, winstep * corpus_idx, winstep * corpus_idx + winlen))
     return frame_locations
 
- def redub(input_filename, frame_locations, output_filename):
+def redub(input_filename, frame_locations, output_filename):
      song = AudioSegment.from_wav(input_filename)
      print "Read audio from %s" % input_filename
      fragments = []
@@ -101,6 +101,7 @@ def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
      newsong.export(output_filename, format="mp3")
      print "Wrote new song to %s" % output_filename
 
+# Version of redub that is slow, but allows files to overlap
 def redub_overlay(orig_filename, input_filename, frame_locations, output_filename):
     origsong = AudioSegment.from_wav(orig_filename)
     print "Read audio from %s" % orig_filename
