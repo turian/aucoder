@@ -21,8 +21,8 @@ def window(iterable, size):
     return izip(*iters)
 
 # We can't work with files that don't have this desired_samplerate
-# TODO convert everything to same samplerate
 desired_samplerate = 44100
+FORCE_RESAMPLE = False          # This can be really slow
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
     samplerate = desired_samplerate
@@ -38,12 +38,13 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
     if not os.path.exists(cache_filename):
         print "No cached version for %s" % filename
         mfcc_feat = perform_mfcc_on_filename(filename, opts)
-        if mfcc_feat is not None:
-            cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
-            print "Wrote cache to %s" % cache_filename
+        cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
+        print "Wrote cache to %s" % cache_filename
     else:
         print "Reading cache from %s" % cache_filename
         mfcc_feat = cPickle.load(open(cache_filename, "rb"))
+        if mfcc_feat is None:
+            print "No MFCC for %s, perhaps has wrong samplerate" % filename
     if mfcc_feat is not None:
         print "%s has MFCC with shape %s" % (filename, repr(mfcc_feat.shape))
     return mfcc_feat
@@ -60,7 +61,11 @@ def perform_mfcc_on_filename(filename, opts):
         nchannels = 1
     print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, nchannels)
     
-    if (samplerate != desired_samplerate):
+    if (samplerate != desired_samplerate and not FORCE_RESAMPLE):
+        print "%s has the wrong samplerate, ignoring" % filename
+        return None
+
+    if (samplerate != desired_samplerate and FORCE_RESAMPLE):
         origsig = sig
         sig = resample(origsig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
         print("Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape))
