@@ -8,8 +8,8 @@ import scipy.io.wavfile as wav
 import numpy as n
 from pydub import AudioSegment
 
-WINLEN = 0.025      # 25 ms
-#WINLEN = 0.25      # 250 ms
+#WINLEN = 0.025      # 25 ms
+WINLEN = 0.25      # 250 ms
 WINSTEP = WINLEN    # Don't allow them to overlap
 
 def filename_to_mfcc_frames(filename):
@@ -26,6 +26,7 @@ def filename_to_mfcc_frames(filename):
 #    sig = sig[:1323000]
     
     mfcc_feat = mfcc(sig, rate, winlen=WINLEN, winstep=WINSTEP)
+
     print "Created MFCC with shape", mfcc_feat.shape
     #nframes = mfcc_feat.shape[0]
     return mfcc_feat
@@ -40,9 +41,11 @@ def find_nearest_frames(input_filename, corpus_filename):
         
         # Sum of squared distances (euclidean) against every frame:
         frame_dist = n.sqrt(n.square(corpus_mfcc - this_frame).sum(axis=1))
-        # Remove the frame corresponding to this index
-        dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
-#        dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
+        if input_filename == corpus_filename:
+            # Remove the frame corresponding to this index
+            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
+        else:
+            dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
         dist_idx.sort()
     
         near_frame_dist = dist_idx[0][0]
@@ -57,7 +60,7 @@ def find_nearest_frames(input_filename, corpus_filename):
         frame_locations.append((WINSTEP * idx, WINSTEP * idx + WINLEN))
     return frame_locations
 
-def redub(input_filename, frame_locations, output_filename):
+def redub(orig_filename, input_filename, frame_locations, output_filename):
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
     fragments = []
@@ -68,6 +71,13 @@ def redub(input_filename, frame_locations, output_filename):
         fragments.append(fragment)
     newsong = fragments[0]
     for f in fragments[1:]: newsong += f
+
+    # Now, overlay the original audio at lower volume
+    origsong = AudioSegment.from_wav(orig_filename)
+    print "Read audio from %s" % orig_filename
+#    origsong = origsong.apply_gain(-10)
+    newsong = newsong.overlay(origsong)
+
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
 
@@ -76,7 +86,9 @@ if __name__ == "__main__":
     parser.add_argument('--input', dest='input', help='Input audio signal to be covered (wav)')
     parser.add_argument('--corpus', help='Audio file to use as samples (wav)')
     parser.add_argument('--output', dest='output', help='Output filename (mp3)')
+#    parser.add_argument('--winlen', dest='winlen', default=0.025, help='Frame window length')
+#    parser.add_argument('--winstep', dest='winstep', default=0.025, help='Frame window length')
 
     args = parser.parse_args()
     frame_locations = find_nearest_frames(args.input, args.corpus)
-    redub(args.corpus, frame_locations, args.output)
+    redub(args.input, args.corpus, frame_locations, args.output)
