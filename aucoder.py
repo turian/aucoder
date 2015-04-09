@@ -19,7 +19,7 @@ def convert_to_wav(filename):
         song.export(filename, format="wav")
     return filename
 
-def find_nearest_frames(filename):
+def filename_to_mfcc_frames(filename):
     # TODO convert everything to same samplerate
     (rate,sig) = wav.read(filename)
     nchannels = sig.shape[1]
@@ -29,20 +29,24 @@ def find_nearest_frames(filename):
     # TODO: Multi-channel
     sig = n.mean(sig, axis=1)
 
-    # 30 seconds
-    sig = sig[:1323000]
+#    # 30 seconds
+#    sig = sig[:1323000]
     
     mfcc_feat = mfcc(sig, rate, winlen=WINLEN, winstep=WINSTEP)
     print "Created MFCC with shape", mfcc_feat.shape
-    nframes = mfcc_feat.shape[0]
+    #nframes = mfcc_feat.shape[0]
+    return mfcc_feat
 
+def find_nearest_frames(input_filename, corpus_filename):
+    input_mfcc = filename_to_mfcc_frames(input_filename)
+    corpus_mfcc = filename_to_mfcc_frames(corpus_filename)
     # For each frame, find the nearest frame
     near_frame_idxs = []
-    for frame_idx in range(nframes):
-        this_frame = mfcc_feat[frame_idx]
+    for frame_idx in range(1000): #range(nframes):
+        this_frame = input_mfcc[frame_idx]
         
         # Sum of squared distances (euclidean) against every frame:
-        frame_dist = n.sqrt(n.square(mfcc_feat - this_frame).sum(axis=1))
+        frame_dist = n.sqrt(n.square(corpus_mfcc - this_frame).sum(axis=1))
         # Remove the frame corresponding to this index
         dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != frame_idx]
 #        dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist())]
@@ -61,7 +65,6 @@ def find_nearest_frames(filename):
     return frame_locations
 
 def redub(input_filename, frame_locations, output_filename):
-    print input_filename
     song = AudioSegment.from_wav(input_filename)
     print "Read audio from %s" % input_filename
     fragments = []
@@ -77,10 +80,13 @@ def redub(input_filename, frame_locations, output_filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
-    parser.add_argument('--input', dest='input', help='Input audio signal to be covered')
-    #parser.add_argument('--corpus', help='MP3 of audio to use as samples')
+    parser.add_argument('--input', dest='input', help='Input audio signal to be covered (wav)')
+    parser.add_argument('--corpus', help='Audio file to use as samples (wav)')
+    parser.add_argument('--output', dest='output', help='Output filename (mp3)')
 
     args = parser.parse_args()
-    filename = convert_to_wav(args.input)
-    frame_locations = find_nearest_frames(filename)
-    redub(filename, frame_locations, "foo.mp3")
+    input_wav = convert_to_wav(args.input)
+    corpus_wav = convert_to_wav(args.corpus)
+
+    frame_locations = find_nearest_frames(input_wav, corpus_wav)
+    redub(input_wav, frame_locations, args.output)
