@@ -8,10 +8,6 @@ import scipy.io.wavfile as wav
 import numpy as n
 from pydub import AudioSegment
 
-WINLEN = 0.025      # 25 ms
-#WINLEN = 0.25      # 250 ms
-WINSTEP = WINLEN    # Don't allow them to overlap
-
 def convert_to_wav(filename):
     if filename.endswith(".mp3"):
         song = AudioSegment.from_mp3(filename)
@@ -19,7 +15,7 @@ def convert_to_wav(filename):
         song.export(filename, format="wav")
     return filename
 
-def filename_to_mfcc_frames(filename):
+def filename_to_mfcc_frames(filename, winlen, winstep):
     # TODO convert everything to same samplerate
     (rate,sig) = wav.read(filename)
     nchannels = sig.shape[1]
@@ -32,14 +28,14 @@ def filename_to_mfcc_frames(filename):
 #    # 30 seconds
 #    sig = sig[:1323000]
     
-    mfcc_feat = mfcc(sig, rate, winlen=WINLEN, winstep=WINSTEP)
+    mfcc_feat = mfcc(sig, rate, winlen=winlen, winstep=winstep)
     print "Created MFCC with shape", mfcc_feat.shape
     #nframes = mfcc_feat.shape[0]
     return mfcc_feat
 
-def find_nearest_frames(input_filename, corpus_filename):
-    input_mfcc = filename_to_mfcc_frames(input_filename)
-    corpus_mfcc = filename_to_mfcc_frames(corpus_filename)
+def find_nearest_frames(input_filename, corpus_filename, winlen, winstep):
+    input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
+    corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
     # For each frame, find the nearest frame
     near_frame_idxs = []
     for frame_idx in range(1000): #range(nframes):
@@ -61,7 +57,7 @@ def find_nearest_frames(input_filename, corpus_filename):
     print near_frame_idxs
     frame_locations = []
     for idx in near_frame_idxs:
-        frame_locations.append((WINSTEP * idx, WINSTEP * idx + WINLEN))
+        frame_locations.append((winstep * idx, winstep * idx + winlen))
     return frame_locations
 
 def redub(input_filename, frame_locations, output_filename):
@@ -80,13 +76,17 @@ def redub(input_filename, frame_locations, output_filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
-    parser.add_argument('--input', dest='input', help='Input audio signal to be covered (wav)')
-    parser.add_argument('--corpus', help='Audio file to use as samples (wav)')
-    parser.add_argument('--output', dest='output', help='Output filename (mp3)')
+    parser.add_argument('--input', help='Input audio signal to be covered (wav or mp3)')
+    parser.add_argument('--corpus', help='Audio file to use as samples (wav or mp3)')
+    parser.add_argument('--output', help='Output filename (mp3)')
+    parser.add_argument('--winlen', help='Frame length, in ms')
+    parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
 
     args = parser.parse_args()
     input_wav = convert_to_wav(args.input)
     corpus_wav = convert_to_wav(args.corpus)
+    winlen = float(args.winlen) / 1000.0
+    winstep = float(args.winstep or args.winlen) / 1000.0
 
-    frame_locations = find_nearest_frames(input_wav, corpus_wav)
+    frame_locations = find_nearest_frames(input_wav, corpus_wav, winlen, winstep)
     redub(input_wav, frame_locations, args.output)
