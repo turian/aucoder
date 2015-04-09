@@ -8,6 +8,7 @@ import tempfile
 from features import mfcc
 from features import logfbank
 import scipy.io.wavfile as wav
+from scikits.samplerate import resample
 import numpy as n
 from pydub import AudioSegment
 from itertools import tee, izip
@@ -19,12 +20,12 @@ def window(iterable, size):
             next(each, None)
     return izip(*iters)
 
-# We can't work with files that don't have this SAMPLERATE
+# We can't work with files that don't have this desired_samplerate
 # TODO convert everything to same samplerate
-SAMPLERATE = 44100
+desired_samplerate = 44100
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
-    samplerate = SAMPLERATE
+    samplerate = desired_samplerate
     opts = {"samplerate": samplerate,
             "winlen": winlen,
             "winstep": winstep,
@@ -49,16 +50,20 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
 
 def perform_mfcc_on_filename(filename, opts):
     (samplerate, sig) = read_audio_to_numpy(filename)
-    nchannels = sig.shape[1]
-    if samplerate != SAMPLERATE:
-        print "Sorry, %s has wrong samplerate %d (!= %d)" % (filename, samplerate, SAMPLERATE)
-        return None
-
-    print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, sig.shape[1])
-
-    # Mix to mono
-    # TODO: Multi-channel
-    sig = n.mean(sig, axis=1)
+    opts['samplerate'] = samplerate
+    if sig.ndim > 1:
+        # Mix to mono
+        # TODO: Multi-channel
+        nchannels = sig.shape[1]
+        sig = n.mean(sig, axis=1)
+    else:
+        nchannels = 1
+    print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, nchannels)
+    
+    if (samplerate != desired_samplerate):
+        origsig = sig
+        sig = resample(origsig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
+        print("Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape))
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat

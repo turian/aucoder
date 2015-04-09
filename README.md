@@ -3,31 +3,18 @@ aucoder
 
 "Cover" an audio sample using another audio sample.
 
-Need ffmpeg.
+Installation
+------------
 
+```
+brew install ffmpeg
 brew install libsamplerate
-
-pip install sckits.samplerate
-
-Use this audio library:
-
-https://github.com/jameslyons/python_speech_features
-
-and pydub
-
+brew install boost-python
 ```
-ffmpeg -i file.mp3 file.wav
-```
+
+Install packages in `requirements.txt`
 
 TODO
 ----
 
-* Automatically covert wav to mp3
-
-* Try librosa:
-
-```
-pip install librosa scikits.samplerate
-```
-
-Convert mp3s to wav to start:
+* Try librosa
