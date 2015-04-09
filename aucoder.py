@@ -24,7 +24,7 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
             "nfilt": 26,
             "nfft": 512
             }
-    cache_filename = filename + "_".join("%s=%s" % (k, v) for k, v in sorted(opts.items())) + ".pkl"
+    cache_filename = filename + "." + "_".join("%s=%s" % (k, v) for k, v in sorted(opts.items())) + ".pkl"
 
     if not os.path.exists(cache_filename):
         print "No cached version for %s" % filename
@@ -57,8 +57,9 @@ def read_audio_to_numpy(filename):
         filename = filename.replace(".mp3", ".wav")
         tmp = tempfile.NamedTemporaryFile(suffix=".wav")
         song.export(tmp.name, format="wav")
+        print "Temporary export to %s" % tmp.name
 
-        (samplerate,signal) = wav.read(filename)
+        (samplerate,signal) = wav.read(tmp.name)
         tmp.close()
     else:
         assert filename.endswith(".wav")
@@ -138,15 +139,19 @@ def redub_overlay(orig_filename, input_filename, frame_locations, output_filenam
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
-    parser.add_argument('--input', help='Input audio signal to be covered (mp3)')
-    parser.add_argument('--output', help='Output filename (mp3)')
+    parser.add_argument('-i', '--input', help='Input audio signal to be covered (mp3)')
+    parser.add_argument('-o', '--output', help='Output filename (mp3)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
-    parser.add_argument('--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
+    parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
 
     args = parser.parse_args()
     winlen = float(args.winlen) / 1000.0
     winstep = float(args.winstep or args.winlen) / 1000.0
+
+    assert args.input.endswith(".mp3")
+    for c in args.corpus: assert c.endswith(".mp3")
+    assert args.output.endswith(".mp3")
 
     frame_locations = find_nearest_frames(args.input, args.corpus[0], winlen, winstep)
     redub(args.input, args.corpus[0], frame_locations, args.output)
