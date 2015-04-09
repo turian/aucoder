@@ -12,6 +12,13 @@ from pydub import AudioSegment
 WINLEN = 0.25      # 250 ms
 WINSTEP = WINLEN    # Don't allow them to overlap
 
+def convert_to_wav(filename):
+    if filename.endswith(".mp3"):
+        song = AudioSegment.from_mp3(filename)
+        filename = filename.replace(".mp3", ".wav")
+        song.export(filename, format="wav")
+    return filename
+
 def filename_to_mfcc_frames(filename):
     # TODO convert everything to same samplerate
     (rate,sig) = wav.read(filename)
@@ -90,5 +97,8 @@ if __name__ == "__main__":
 #    parser.add_argument('--winstep', dest='winstep', default=0.025, help='Frame window length')
 
     args = parser.parse_args()
-    frame_locations = find_nearest_frames(args.input, args.corpus)
-    redub(args.input, args.corpus, frame_locations, args.output)
+    input_wav = convert_to_wav(args.input)
+    corpus_wav = convert_to_wav(args.corpus)
+
+    frame_locations = find_nearest_frames(input_wav, corpus_wav)
+    redub(input_wav, corpus_wav, frame_locations, args.output)

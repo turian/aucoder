@@ -1,3 +1,4 @@
 numpy
 scipy
+pydub
 -e git://github.com/jameslyons/python_speech_features.git#egg=speech-features
