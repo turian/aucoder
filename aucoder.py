@@ -42,18 +42,19 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
 
 def perform_mfcc_on_filename(filename, opts):
     (samplerate, sig) = read_audio_to_numpy(filename)
-    nchannels = sig.shape[1]
-    if samplerate != SAMPLERATE:
-        print "Sorry, %s has wrong samplerate %d (!= %d)" % (filename, samplerate, SAMPLERATE)
-        return None
-
-    print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, sig.shape[1])
-
-    # Mix to mono
-    # TODO: Multi-channel
-    sig = n.mean(sig, axis=1)
+    opts['samplerate'] = samplerate
+    if sig.ndim > 1:
+        # Mix to mono
+        # TODO: Multi-channel
+        nchannels = sig.shape[1]
+        sig = n.mean(sig, axis=1)
+    else:
+        nchannels = 1
+    print "Read %s with sample rate %s, #channels = %d" % (filename, samplerate, nchannels)
+    
     if (samplerate != SAMPLERATE):
         sig = resample(sig, SAMPLERATE/samplerate, 'linear')
+        print("Resampled")
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
