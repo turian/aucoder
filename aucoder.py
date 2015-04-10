@@ -130,7 +130,7 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     dists = []
     near_frames = []
     approx_dist_error = []
-    for frame_idx in range(min(SECONDS_OUTPUT * 1000 / winstep, input_nframes)):
+    for frame_idx in range(min(int(SECONDS_OUTPUT / winstep), input_nframes)):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
