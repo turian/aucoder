@@ -27,8 +27,8 @@ ANN_CANDIDATES = 10
 
 IGNORE_SAME_FRAME = True
 
-#SECONDS_OUTPUT = 30.0
-SECONDS_OUTPUT = None
+SECONDS_OUTPUT = 30.0
+#SECONDS_OUTPUT = None
 
 SEED = 0
 random.seed(SEED)
@@ -50,12 +50,12 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
         cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
         print "\tWrote cache to %s" % cache_filename
     else:
-        print "\tReading cache from %s" % cache_filename
+#        print "\tReading cache from %s" % cache_filename
         mfcc_feat = cPickle.load(open(cache_filename, "rb"))
         if mfcc_feat is None:
             print "No MFCC for %s, perhaps has wrong samplerate" % filename
-    if mfcc_feat is not None:
-        print "%s has MFCC with shape %s" % (filename, repr(mfcc_feat.shape))
+#    if mfcc_feat is not None:
+#        print "%s has MFCC with shape %s" % (filename, repr(mfcc_feat.shape))
     return mfcc_feat
 
 def perform_mfcc_on_filename(filename, opts):
