@@ -1,5 +1,6 @@
 numpy
 scipy
 annoy
+pydub
 scikits.samplerate
 -e git://github.com/jameslyons/python_speech_features.git#egg=speech-features

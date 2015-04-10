@@ -10,9 +10,8 @@ Installation
 brew install ffmpeg
 brew install libsamplerate
 brew install boost-python
+sudo pip install -r requirements.txt
 ```
-
-Install packages in `requirements.txt`
 
 TODO
 ----
