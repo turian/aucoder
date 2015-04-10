@@ -107,28 +107,35 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     near_frames = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
-        best_frames = []
-        for (corpus_filename, corpus_mfcc) in corpus:
-            # Don't allow it to use the same exact frame
-            if input_filename == corpus_filename: ignore_frame_idx = frame_idx
-            else: ignore_frame_idx = None
-            near_idx, near_dist = find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx)
-            best_frames.append((near_dist,
-                                winstep * frame_idx,
-                                winstep * frame_idx + winlen,
-                                corpus_filename,
-                                winstep * near_idx,
-                                winstep * near_idx + winlen))
-        best_frames.sort()
-        print best_frames[0]
-        near_frames.append(best_frames[0][1:])
-        dists.append(best_frames[0][0])
+        (near_dist, corpus_filename, near_idx) = \
+            find_nearest_frame_exhaustive(this_frame, input_filename, frame_idx, corpus)
+        best_frame = (near_dist,
+                      winstep * frame_idx,
+                      winstep * frame_idx + winlen,
+                      corpus_filename,
+                      winstep * near_idx,
+                      winstep * near_idx + winlen)
+        print best_frame
+        dists.append(best_frame[0])
+        near_frames.append(best_frame[1:])
     dists = n.array(dists)
     print "DISTANCE median=%.3f, mean=%.3f" % (n.median(dists), n.mean(dists))
     return near_frames
 
+# Exhaustive technique to find the nearest frame
+# Return (distance, corpus file, corpus frame idx)
+def find_nearest_frame_exhaustive(this_frame, input_filename, input_frame_idx, corpus):
+    best_frames = []
+    for (corpus_filename, corpus_mfcc) in corpus:
+        # Don't allow it to use the same exact frame
+        if input_filename == corpus_filename: ignore_frame_idx = input_frame_idx
+        else: ignore_frame_idx = None
+        near_idx, near_dist = find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ignore_frame_idx)
+        best_frames.append((near_dist, corpus_filename, near_idx))
+    best_frames.sort()
+    return best_frames[0]
 
-def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
+def find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ignore_frame_idx):
     # Sum of squared distances (euclidean) against every frame:
     frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
     dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != ignore_frame_idx]
@@ -262,5 +269,6 @@ if __name__ == "__main__":
         assert c.endswith(".mp3")
     assert args.output.endswith(".mp3")
 
-    frame_locations = find_nearest_frames_using_annoy(args.input, args.corpus, winlen, winstep)
+#    frame_locations = find_nearest_frames_using_annoy(args.input, args.corpus, winlen, winstep)
+    frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
     redub_overlay(frame_locations, args.output)
