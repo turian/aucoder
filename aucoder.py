@@ -305,7 +305,6 @@ def submp3(dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
     parser.add_argument('-i', '--input', help='Input audio signal to be covered (mp3)')
-#    parser.add_argument('-o', '--output', help='Output filename (wav)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
     parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3), or the name of a directory', nargs='*')
