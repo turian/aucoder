@@ -241,11 +241,18 @@ def redub_overlay(frame_locations, output_filename):
             if write_start_sec >= cut_end or write_end_sec <= cut_start:
                 continue
 
-            actual_start_sec = corpus_start_sec + (cut_start - write_start_sec)
-            actual_end_sec = min(actual_start_sec + cut_length, corpus_end_sec)
+            desired_cut_start = max(write_start_sec, cut_start)
+            desired_cut_end   = min(write_end_sec, cut_end)
+            assert desired_cut_end >= desired_cut_start
+
+            actual_start_sec = corpus_start_sec + (desired_cut_start - write_start_sec)
+            actual_end_sec   = actual_start_sec + desired_cut_end - desired_cut_start
+            assert actual_end_sec >= actual_start_sec
 
             segment = get_audiosegment(corpus_filename, actual_start_sec, actual_end_sec)
             fragment = fragment.overlay(segment)
+
+#            print fragment.duration_seconds, segment.duration_seconds, actual_end_sec - actual_start_sec
 
         fragments.append(fragment)
     
