@@ -262,6 +262,77 @@ def redub_overlay(frame_locations, output_filename):
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
 
+def get_audiosegment_wave(filename, start, end):
+    return full_audiosegment_wave(filename)[start:end]
+
+full_audiosegment_wave_cache = {}
+def full_audiosegment_wave(filename):
+    global full_audiosegment_wave_cache
+    if filename not in full_audiosegment_wave_cache:
+        (samplerate,signal) = read_audio_to_numpy(filename)
+        assert samplerate == desired_samplerate
+        full_audiosegment_wave_cache[filename] = signal
+        print "Read audio from %s" % filename
+    return full_audiosegment_wave_cache[filename]
+
+def sec2sample(sec):
+    return int(sec * desired_samplerate + 0.5)
+
+def redub_overlay_wave(frame_locations, output_filename):
+    start_points = set(sec2sample(frame[0]) for frame in frame_locations)
+    end_points = set(sec2sample(frame[1]) for frame in frame_locations)
+    cut_points = sorted(start_points.union(end_points))
+    cuts = window(cut_points, 2)
+
+    fragments = []
+    for (cut_start, cut_end) in cuts:
+        cut_length = cut_end - cut_start
+        this_fragments = []
+        # TODO: this nested loop can be a bit slow, but we're always searching in
+        #       one direction. We could speed this up with some trickery.
+        for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
+            write_start = sec2sample(write_start_sec)
+            write_end = sec2sample(write_end_sec)
+            corpus_start = sec2sample(corpus_start_sec)
+            corpus_end = sec2sample(corpus_end_sec)
+
+            if write_start >= cut_end or write_end <= cut_start:
+                continue
+
+            desired_cut_start = max(write_start, cut_start)
+            desired_cut_end   = min(write_end, cut_end)
+            assert desired_cut_end >= desired_cut_start
+
+            if (desired_cut_end - desired_cut_start) != cut_length:
+                print "Weird. Skipping this cut, can't get the right size"
+                continue
+
+            actual_start = corpus_start + (desired_cut_start - write_start)
+            actual_end   = actual_start + desired_cut_end - desired_cut_start
+            assert actual_end >= actual_start
+
+            segment = get_audiosegment_wave(corpus_filename, actual_start, actual_end)
+            this_fragments.append(segment)
+
+        to_avg = []
+        for f in this_fragments:
+            if f.shape[0] != cut_length:
+                print "Weird. Extracted cut of the wrong size"
+                continue
+            else:
+                to_avg.append(f)
+        total = to_avg[0].astype("float")
+        for t in to_avg[1:]:
+            total += t.astype("float")
+        total /= len(to_avg)
+        assert(total.shape[0] == cut_length)
+        fragments.append(total.astype("int16"))
+    
+    newsong = n.vstack(fragments)
+    print "Composed %d fragments into %s" % (len(fragments), newsong.shape)
+    wav.write(filename = output_filename, rate = desired_samplerate, data = newsong)
+    print "Wrote new song to %s" % output_filename
+
 def window(iterable, size):
     iters = tee(iterable, size)
     for i in xrange(1, size):
@@ -272,7 +343,7 @@ def window(iterable, size):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
     parser.add_argument('-i', '--input', help='Input audio signal to be covered (mp3)')
-    parser.add_argument('-o', '--output', help='Output filename (mp3)')
+    parser.add_argument('-o', '--output', help='Output filename (wav)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
     parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
@@ -284,8 +355,8 @@ if __name__ == "__main__":
     assert args.input.endswith(".mp3")
     for c in args.corpus:
         assert c.endswith(".mp3")
-    assert args.output.endswith(".mp3")
+    assert args.output.endswith(".wav")
 
 #    frame_locations = find_nearest_frames_using_annoy(args.input, args.corpus, winlen, winstep)
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub_overlay(frame_locations, args.output)
+    redub_overlay_wave(frame_locations, args.output)
