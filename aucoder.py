@@ -296,22 +296,47 @@ def window(iterable, size):
             next(each, None)
     return izip(*iters)
 
+def submp3(dir):
+    for root, dirs, files in os.walk(dir):
+        for file in files:
+            if file.endswith(".mp3"):
+                 yield (os.path.join(root, file))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
     parser.add_argument('-i', '--input', help='Input audio signal to be covered (mp3)')
-    parser.add_argument('-o', '--output', help='Output filename (wav)')
+#    parser.add_argument('-o', '--output', help='Output filename (wav)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
-    parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
+    parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3), or the name of a directory', nargs='*')
 
     args = parser.parse_args()
     winlen = float(args.winlen) / 1000.0
     winstep = float(args.winstep or args.winlen) / 1000.0
 
     assert args.input.endswith(".mp3")
-    for c in args.corpus:
-        assert c.endswith(".mp3")
-    assert args.output.endswith(".wav")
 
-    frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub_overlay_wave(frame_locations, args.output)
+    corpus = []
+    for c in args.corpus:
+        if os.path.isdir(c):
+            for f in submp3(c):
+                corpus.append(f)
+        else:
+            assert c.endswith(".mp3")
+            corpus.append(c)
+#    print "Corpus =", corpus
+
+    def basefile(f):
+        if os.path.isdir(f):
+            return os.path.split(os.path.normpath(f))[1]
+        else:
+            return os.path.splitext(os.path.split(os.path.normpath(f))[1])[0]
+
+    l = ""
+    if len(args.corpus) > 1: l == str(len(args.corpus))
+    output = os.path.join("output", basefile(args.input) + " - " + basefile(args.corpus[0]) + l + " winlen=%f winstep=%f.wav" % (winlen, winstep))
+    print "Using output =", output
+    assert output.endswith(".wav")
+
+    frame_locations = find_nearest_frames(args.input, corpus, winlen, winstep)
+    redub_overlay_wave(frame_locations, output)
