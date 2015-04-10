@@ -17,6 +17,7 @@ from annoy import AnnoyIndex
 
 # We can't work with files that don't have this desired_samplerate
 desired_samplerate = 44100
+desired_channels = 2            # We expect this for corpus files
 FORCE_RESAMPLE = False          # This can be really slow
 
 #ANN_NTREES = 100
@@ -75,6 +76,7 @@ def perform_mfcc_on_filename(filename, opts):
         print "Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape)
 
     mfcc_feat = mfcc(sig, **opts)
+    print "Computed mfccs on %s" % filename
     return mfcc_feat
 
 
@@ -126,7 +128,8 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     dists = []
     near_frames = []
     approx_dist_error = []
-    for frame_idx in range(min(1000, input_nframes)): #range(nframes):
+    for frame_idx in range(input_nframes):
+#    for frame_idx in range(min(1000, input_nframes)):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
@@ -208,71 +211,6 @@ def build_annoy_index(corpus, dimension):
     index.build(ANN_NTREES)
     return index, mfcc_list
 
-# Simple version of redub, that assumes all frame_locations are contiguous
-# Frame locations has the following format
-#   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
-def redub(frame_locations, output_filename):
-    fragments = []
-    for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
-        fragments.append(get_audiosegment(corpus_filename, corpus_start_sec, corpus_end_sec))
-    newsong = fragments[0]
-    for f in fragments[1:]: newsong += f
-    print "Composed %d fragments" % len(fragments)
-    newsong.export(output_filename, format="mp3")
-    print "Wrote new song to %s" % output_filename
-
-def get_audiosegment(filename, start_sec, end_sec):
-    start_ms = int(start_sec * 1000 + 0.5)
-    end_ms = int(end_sec * 1000 + 0.5)
-    return read_audio_to_numpy(filename)[1][start_ms:end_ms]
-
-full_audiosegment_cache = {}
-def full_audiosegment(filename):
-    global full_audiosegment_cache
-    if filename not in full_audiosegment_cache:
-        full_audiosegment_cache[filename] = AudioSegment.from_mp3(filename)
-        print "Read audio from %s" % filename
-    return full_audiosegment_cache[filename]
-
-# Version of redub that is slow, but allows files to overlap
-def redub_overlay(frame_locations, output_filename):
-    start_points = set(round(frame[0], 6) for frame in frame_locations)
-    end_points = set(round(frame[1], 6) for frame in frame_locations)
-    cut_points = sorted(start_points.union(end_points))
-    cuts = window(cut_points, 2)
-
-    fragments = []
-    for (cut_start, cut_end) in cuts:
-        cut_length = 1000 * (cut_end - cut_start)
-
-        fragment = AudioSegment.silent(duration=cut_length)
-        # TODO: this nested loop can be a bit slow, but we're always searching in
-        #       one direction. We could speed this up with some trickery.
-        for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
-            if write_start_sec >= cut_end or write_end_sec <= cut_start:
-                continue
-
-            desired_cut_start = max(write_start_sec, cut_start)
-            desired_cut_end   = min(write_end_sec, cut_end)
-            assert desired_cut_end >= desired_cut_start
-
-            actual_start_sec = corpus_start_sec + (desired_cut_start - write_start_sec)
-            actual_end_sec   = actual_start_sec + desired_cut_end - desired_cut_start
-            assert actual_end_sec >= actual_start_sec
-
-            segment = get_audiosegment(corpus_filename, actual_start_sec, actual_end_sec)
-            fragment = fragment.overlay(segment)
-
-#            print fragment.duration_seconds, segment.duration_seconds, actual_end_sec - actual_start_sec
-
-        fragments.append(fragment)
-    
-    newsong = fragments[0]
-    for f in fragments[1:]: newsong += f
-    print "Composed %d fragments" % len(fragments)
-    newsong.export(output_filename, format="mp3")
-    print "Wrote new song to %s" % output_filename
-
 def get_audiosegment_wave(filename, start, end):
     return read_audio_to_numpy(filename)[1][start:end]
 
@@ -315,8 +253,9 @@ def redub_overlay_wave(frame_locations, output_filename):
             segment = get_audiosegment_wave(corpus_filename, actual_start, actual_end)
             this_fragments.append(segment)
 
-        to_avg = []
+        to_avg = [n.zeros((cut_length, desired_channels))]
         for f in this_fragments:
+            assert f.shape[1] == desired_channels
             if f.shape[0] != cut_length:
                 print "Weird. Extracted cut of the wrong size. Expected = %d, received = %d" % (cut_length, f.shape[0])
                 continue
@@ -359,6 +298,5 @@ if __name__ == "__main__":
         assert c.endswith(".mp3")
     assert args.output.endswith(".wav")
 
-#    frame_locations = find_nearest_frames_using_annoy(args.input, args.corpus, winlen, winstep)
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
     redub_overlay_wave(frame_locations, args.output)
