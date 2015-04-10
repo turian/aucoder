@@ -15,13 +15,6 @@ from pydub import AudioSegment
 from itertools import tee, izip
 from annoy import AnnoyIndex
 
-def window(iterable, size):
-    iters = tee(iterable, size)
-    for i in xrange(1, size):
-        for each in iters[i:]:
-            next(each, None)
-    return izip(*iters)
-
 # We can't work with files that don't have this desired_samplerate
 desired_samplerate = 44100
 FORCE_RESAMPLE = False          # This can be really slow
@@ -29,6 +22,8 @@ FORCE_RESAMPLE = False          # This can be really slow
 #ANN_NTREES = 100
 ANN_NTREES = 10
 ANN_CANDIDATES = 10
+
+IGNORE_SAME_FRAME = False
 
 SEED = 0
 random.seed(SEED)
@@ -150,7 +145,7 @@ def find_nearest_frame_exhaustive(this_frame, input_filename, input_frame_idx, c
     best_frames = []
     for (corpus_filename, corpus_mfcc) in corpus:
         # Don't allow it to use the same exact frame
-        if input_filename == corpus_filename: ignore_frame_idx = input_frame_idx
+        if input_filename == corpus_filename and IGNORE_SAME_FRAME: ignore_frame_idx = input_frame_idx
         else: ignore_frame_idx = None
         near_idx, near_dist = find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ignore_frame_idx)
         best_frames.append((near_dist, corpus_filename, near_idx))
@@ -174,7 +169,7 @@ def find_nearest_frame_annoy(this_frame, input_filename, input_frame_idx, corpus
     candidates = []
     for nearest_neighbor in nearest_neighbors:
         corpus_filename, near_idx = annoy_mfcc_list[nearest_neighbor]
-        if corpus_filename == input_filename and near_idx == input_frame_idx: continue
+        if IGNORE_SAME_FRAME and corpus_filename == input_filename and near_idx == input_frame_idx: continue
         corpus_mfcc = None
         for (filename, mfcc) in corpus:
             if filename == corpus_filename: corpus_mfcc = mfcc
@@ -259,6 +254,13 @@ def redub_overlay(frame_locations, output_filename):
     print "Composed %d fragments" % len(fragments)
     newsong.export(output_filename, format="mp3")
     print "Wrote new song to %s" % output_filename
+
+def window(iterable, size):
+    iters = tee(iterable, size)
+    for i in xrange(1, size):
+        for each in iters[i:]:
+            next(each, None)
+    return izip(*iters)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
