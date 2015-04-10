@@ -92,9 +92,12 @@ def read_audio_to_numpy(filename):
 # For the input file, find frames that are nearest in the corpus.
 # Return a list of the following format:
 #   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
+annoy_mfcc_index, annoy_mfcc_list = None, None
 def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
+    global annoy_mfcc_index, annoy_mfcc_list
     input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
     input_nframes = input_mfcc.shape[0]
+    dimension = input_mfcc.shape[1]
 
     corpus = []
     for corpus_filename in corpus_filenames:
@@ -102,20 +105,27 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
         if corpus_mfcc is not None:
             corpus.append((corpus_filename, corpus_mfcc))
 
+    #Build an AnnoyIndex
+    annoy_mfcc_index, annoy_mfcc_list = build_annoy_index(corpus, dimension)
+
     # For each frame, find the nearest frame
     dists = []
     near_frames = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
+            find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
+        (near_dist2, corpus_filename2, near_idx2) = \
             find_nearest_frame_exhaustive(this_frame, input_filename, frame_idx, corpus)
+        print (near_dist - near_dist2)
+
         best_frame = (near_dist,
                       winstep * frame_idx,
                       winstep * frame_idx + winlen,
                       corpus_filename,
                       winstep * near_idx,
                       winstep * near_idx + winlen)
-        print best_frame
+#        print best_frame
         dists.append(best_frame[0])
         near_frames.append(best_frame[1:])
     dists = n.array(dists)
@@ -145,43 +155,24 @@ def find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ign
     near_frame_idx = dist_idx[0][1]
     return near_frame_idx, near_frame_dist
 
-# For the input file, find frames that are nearest in the corpus.
-# Return a list of the following format:
-#   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
-def find_nearest_frames_using_annoy(input_filename, corpus_filenames, winlen, winstep):
-    input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
-    input_nframes = input_mfcc.shape[0]
-    dimension = input_mfcc.shape[1]
+# Approx nearest neighbor technique to find the nearest frame
+# Return (distance, corpus file, corpus frame idx)
+def find_nearest_frame_annoy(this_frame, input_filename, input_frame_idx, corpus):
+    nearest_neighbor = annoy_mfcc_index.get_nns_by_vector(this_frame.tolist(), 1)[0]
+    corpus_filename, near_idx = annoy_mfcc_list[nearest_neighbor]
+    if corpus_filename == input_filename and near_idx == input_frame_idx:
+        nearest_neighbor = annoy_mfcc_index.get_nns_by_vector(this_frame.tolist(), 2)[1]
+        corpus_filename, near_idx = annoy_mfcc_list[nearest_neighbor]
 
-    corpus = []
-    for corpus_filename in corpus_filenames:
-        corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
-        if corpus_mfcc is not None:
-            corpus.append((corpus_filename, corpus_mfcc))
+    corpus_mfcc = None
+    for (filename, mfcc) in corpus:
+        if filename == corpus_filename: corpus_mfcc = mfcc
+    near_dist = n.square(mfcc[near_idx] - this_frame).sum()
+    return near_dist, corpus_filename, near_idx
 
-    #Build an AnnoyIndex
-    mfcc_index, mfcc_list = build_annoy_index(corpus, dimension)
-
-    # For each frame, find the nearest frame
-    near_frames = []
-    for frame_idx in range(min(1000, input_nframes)): #range(nframes):
-        this_frame = input_mfcc[frame_idx]
-        nearest_neighbor = mfcc_index.get_nns_by_vector(this_frame.tolist(), 1)[0]
-        corpus_filename, near_idx = mfcc_list[nearest_neighbor]
-        if corpus_filename == input_filename and near_idx == frame_idx:
-            nearest_neighbor = mfcc_index.get_nns_by_vector(this_frame.tolist(), 2)[1]
-            corpus_filename, near_idx = mfcc_list[nearest_neighbor]
-        near_frames.append(
-            (winstep * frame_idx,
-            winstep * frame_idx + winlen,
-            corpus_filename,
-            winstep * near_idx,
-            winstep * near_idx + winlen))
-    return near_frames
-      
 def build_annoy_index(corpus, dimension):
     print("Building Annoy index")
-    index = AnnoyIndex(dimension)
+    index = AnnoyIndex(dimension, "euclidean")
     mfcc_list = []
     i = 0
     for filename, frames in corpus:
@@ -191,7 +182,8 @@ def build_annoy_index(corpus, dimension):
             mfcc_list.append((filename, index_in_file))
             index.add_item(i, mfcc.tolist())
             i += 1
-    index.build(-1)
+#    index.build(-1)
+    index.build(100)
     return index, mfcc_list
 
 # Simple version of redub, that assumes all frame_locations are contiguous
