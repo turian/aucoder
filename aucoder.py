@@ -118,10 +118,13 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     dimension = input_mfcc.shape[1]
 
     corpus = []
+    total_length = 0
     for corpus_filename in corpus_filenames:
         corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
+        total_length += corpus_mfcc.shape[0]
         if corpus_mfcc is not None:
             corpus.append((corpus_filename, corpus_mfcc))
+    print "Corpus has %.2f hr, %d frames" % (total_length * winstep / 60 / 60, total_length)
 
     #Build an AnnoyIndex
     annoy_mfcc_index, annoy_mfcc_list = build_annoy_index(corpus, dimension)
