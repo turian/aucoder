@@ -308,7 +308,8 @@ if __name__ == "__main__":
     for c in args.corpus:
         assert c.endswith(".mp3")
 
-    output = args.input.split(".")[0]
+    output = "output/"
+    output += args.input.split(".")[0]
     output += "_" + args.corpus[0].split(".")[0].replace("/","-")
     if len(args.corpus) > 1:
         output += "(" + str(len(args.corpus)) + ")"
