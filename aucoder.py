@@ -5,6 +5,7 @@ import os.path
 import cPickle
 import tempfile
 import random
+import hashlib
 
 from features import mfcc
 from features import logfbank
@@ -215,9 +216,18 @@ def build_annoy_index(corpus, dimension):
             index.add_item(i, mfcc.tolist())
             assert mfcc_list[i] == (filename, index_in_file)
             i += 1
-    print "Building Annoy index with %d trees" % ANN_NTREES
-#    index.build(-1)
-    index.build(ANN_NTREES)
+
+    cache_filename = "annoy_index_" + hashlib.md5(str([filename for filename, frames in corpus])).hexdigest() + "_" + str(ANN_NTREES) + ".tree"
+    
+    if not os.path.exists(cache_filename):
+        print "Building Annoy index with %d trees" % ANN_NTREES
+    #    index.build(-1)
+        index.build(ANN_NTREES)
+        index.save(cache_filename)
+        print "\tWrote cache to %s" % cache_filename
+    else:
+        print "\tReading cache from %s" % cache_filename
+        index.load(cache_filename)
     return index, mfcc_list
 
 def get_audiosegment_wave(filename, start, end):
