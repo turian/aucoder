@@ -89,7 +89,7 @@ def read_audio_to_numpy(filename):
         (samplerate,signal) = read_audio_to_numpy_uncached(filename)
         assert samplerate == desired_samplerate
         full_audiosegment_wave_cache[filename] = (samplerate, signal)
-        print "Read audio from %s" % filename
+        print "\tRead audio from %s" % filename
     return full_audiosegment_wave_cache[filename]
 
 def read_audio_to_numpy_uncached(filename):
@@ -98,7 +98,7 @@ def read_audio_to_numpy_uncached(filename):
         filename = filename.replace(".mp3", ".wav")
         tmp = tempfile.NamedTemporaryFile(suffix=".wav")
         song.export(tmp.name, format="wav")
-        print "Temporary export to %s" % tmp.name
+#        print "Temporary export to %s" % tmp.name
 
         (samplerate,signal) = wav.read(tmp.name)
         tmp.close()
