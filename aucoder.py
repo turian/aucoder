@@ -218,6 +218,7 @@ def sec2sample(sec):
     return int(sec * desired_samplerate + 0.5)
 
 def redub_overlay_wave(frame_locations, output_filename):
+    print "Beginning redub_overlay_wave to %s with %d frames" % (output_filename, len(frame_locations))
     start_points = set(sec2sample(frame[0]) for frame in frame_locations)
     end_points = set(sec2sample(frame[1]) for frame in frame_locations)
     cut_points = sorted(start_points.union(end_points))
