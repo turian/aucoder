@@ -129,7 +129,7 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     print "Corpus has %.2f hr, %d frames" % (total_length * winstep / 60 / 60, total_length)
 
     #Build an AnnoyIndex
-    annoy_mfcc_index, annoy_mfcc_list = build_annoy_index(corpus, dimension)
+    annoy_mfcc_index, annoy_mfcc_list = build_annoy_index(corpus, dimension, winlen, winstep)
 
     # For each frame, find the nearest frame
     dists = []
@@ -204,7 +204,7 @@ def find_nearest_frame_annoy(this_frame, input_filename, input_frame_idx, corpus
     # Otherwise, we post filter and disallow you to return the frame being used to search
     return candidates[0]
 
-def build_annoy_index(corpus, dimension):
+def build_annoy_index(corpus, dimension, winlen, winstep):
     print "Adding to Annoy index"
     index = AnnoyIndex(dimension, "euclidean")
     mfcc_list = []
@@ -217,7 +217,15 @@ def build_annoy_index(corpus, dimension):
             assert mfcc_list[i] == (filename, index_in_file)
             i += 1
 
-    cache_filename = "annoy_index_" + hashlib.md5(str([filename for filename, frames in corpus])).hexdigest() + "_" + str(ANN_NTREES) + ".tree"
+    opts = {"samplerate": desired_samplerate,
+            "winlen": winlen,
+            "winstep": winstep,
+            "numcep": 13,
+            "nfilt": 26,
+            "nfft": 512,
+            "ntrees": ANN_NTREES
+            }
+    cache_filename = "annoy_index_" + hashlib.md5(str([filename for filename, frames in corpus])).hexdigest() + "." + "_".join("%s=%s" % (k, v) for k, v in sorted(opts.items())) + ".tree"
     
     if not os.path.exists(cache_filename):
         print "Building Annoy index with %d trees" % ANN_NTREES
