@@ -153,7 +153,7 @@ def find_nearest_frames_using_annoy(input_filename, corpus_filenames, winlen, wi
             corpus.append((corpus_filename, corpus_mfcc))
 
     #Build an AnnoyIndex
-    mfcc_index, mfcc_list = build_index(corpus, dimension, input_filename)
+    mfcc_index, mfcc_list = build_annoy_index(corpus, dimension)
 
     # For each frame, find the nearest frame
     near_frames = []
@@ -172,7 +172,7 @@ def find_nearest_frames_using_annoy(input_filename, corpus_filenames, winlen, wi
             winstep * near_idx + winlen))
     return near_frames
       
-def build_index(corpus, dimension, input_filename):
+def build_annoy_index(corpus, dimension):
     print("Building Annoy index")
     index = AnnoyIndex(dimension)
     mfcc_list = []
