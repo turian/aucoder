@@ -26,6 +26,8 @@ ANN_CANDIDATES = 10
 
 IGNORE_SAME_FRAME = True
 
+SECONDS_OUTPUT = 30.0
+
 SEED = 0
 random.seed(SEED)
 
@@ -128,8 +130,7 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     dists = []
     near_frames = []
     approx_dist_error = []
-    for frame_idx in range(input_nframes):
-#    for frame_idx in range(min(1000, input_nframes)):
+    for frame_idx in range(min(SECONDS_OUTPUT * 1000 / winstep, input_nframes)):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
@@ -218,24 +219,33 @@ def sec2sample(sec):
     return int(sec * desired_samplerate + 0.5)
 
 def redub_overlay_wave(frame_locations, output_filename):
+    print ""
     print "Beginning redub_overlay_wave to %s with %d frames" % (output_filename, len(frame_locations))
     start_points = set(sec2sample(frame[0]) for frame in frame_locations)
     end_points = set(sec2sample(frame[1]) for frame in frame_locations)
     cut_points = sorted(start_points.union(end_points))
-    cuts = window(cut_points, 2)
+    cuts = [x for x in window(cut_points, 2)]
+
+    updated_frame_locations = []
+    for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
+        write_start = sec2sample(write_start_sec)
+        write_end = sec2sample(write_end_sec)
+        corpus_start = sec2sample(corpus_start_sec)
+        corpus_end = sec2sample(corpus_end_sec)
+        updated_frame_locations.append((write_start, write_end, corpus_filename, corpus_start, corpus_end))
+    updated_frame_locations.sort()
+    assert(len(updated_frame_locations) == len(frame_locations))
+    frame_locations = updated_frame_locations
+        
 
     fragments = []
-    for (cut_start, cut_end) in cuts:
+    for (j, (cut_start, cut_end)) in enumerate(cuts):
+        print j, len(cuts)
         cut_length = cut_end - cut_start
         this_fragments = []
         # TODO: this nested loop can be a bit slow, but we're always searching in
         #       one direction. We could speed this up with some trickery.
-        for (write_start_sec, write_end_sec, corpus_filename, corpus_start_sec, corpus_end_sec) in frame_locations:
-            write_start = sec2sample(write_start_sec)
-            write_end = sec2sample(write_end_sec)
-            corpus_start = sec2sample(corpus_start_sec)
-            corpus_end = sec2sample(corpus_end_sec)
-
+        for (write_start, write_end, corpus_filename, corpus_start, corpus_end) in frame_locations:
             if write_start >= cut_end or write_end <= cut_start:
                 continue
 
