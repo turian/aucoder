@@ -26,7 +26,8 @@ ANN_CANDIDATES = 10
 
 IGNORE_SAME_FRAME = True
 
-SECONDS_OUTPUT = 30.0
+#SECONDS_OUTPUT = 30.0
+SECONDS_OUTPUT = None
 
 SEED = 0
 random.seed(SEED)
@@ -46,9 +47,9 @@ def filename_to_mfcc_frames(filename, winlen, winstep):
         print "No cached version for %s" % filename
         mfcc_feat = perform_mfcc_on_filename(filename, opts)
         cPickle.dump(mfcc_feat, open(cache_filename, "wb"))
-        print "Wrote cache to %s" % cache_filename
+        print "\tWrote cache to %s" % cache_filename
     else:
-        print "Reading cache from %s" % cache_filename
+        print "\tReading cache from %s" % cache_filename
         mfcc_feat = cPickle.load(open(cache_filename, "rb"))
         if mfcc_feat is None:
             print "No MFCC for %s, perhaps has wrong samplerate" % filename
@@ -133,7 +134,11 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     dists = []
     near_frames = []
     approx_dist_error = []
-    for frame_idx in range(min(int(SECONDS_OUTPUT / winstep), input_nframes)):
+    if SECONDS_OUTPUT:
+        nframes_to_process = min(int(SECONDS_OUTPUT / winstep), input_nframes)
+    else:
+        nframes_to_process = input_nframes
+    for frame_idx in range(nframes_to_process):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
@@ -204,7 +209,7 @@ def build_annoy_index(corpus, dimension):
     mfcc_list = []
     i = 0
     for filename, frames in corpus:
-        print filename, frames.shape
+#        print filename, frames.shape
         for index_in_file, mfcc in enumerate(frames):
             mfcc_list.append((filename, index_in_file))
             index.add_item(i, mfcc.tolist())
