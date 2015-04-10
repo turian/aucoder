@@ -296,7 +296,6 @@ def window(iterable, size):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Aucode a sound.')
     parser.add_argument('-i', '--input', help='Input audio signal to be covered (mp3)')
-    parser.add_argument('-o', '--output', help='Output filename (wav)')
     parser.add_argument('--winlen', default=250, help='Frame length, in ms')
     parser.add_argument('--winstep', help='Frame step, in ms (= frame length by default)')
     parser.add_argument('-c', '--corpus', help='Audio file(s) to use as samples (mp3)', nargs='*')
@@ -308,7 +307,14 @@ if __name__ == "__main__":
     assert args.input.endswith(".mp3")
     for c in args.corpus:
         assert c.endswith(".mp3")
-    assert args.output.endswith(".wav")
+
+    output = args.input.split(".")[0]
+    output += "_" + args.corpus[0].split(".")[0].replace("/","-")
+    if len(args.corpus) > 1:
+        output += "(" + str(len(args.corpus)) + ")"
+    output += "_winlen=" + args.winlen
+    output += "_winstep=" + (args.winstep or args.winlen)
+    output += ".wav"
 
     frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
-    redub_overlay_wave(frame_locations, args.output)
+    redub_overlay_wave(frame_locations, output)
