@@ -12,6 +12,7 @@ from scikits.samplerate import resample
 import numpy as n
 from pydub import AudioSegment
 from itertools import tee, izip
+from annoy import AnnoyIndex
 
 def window(iterable, size):
     iters = tee(iterable, size)
@@ -116,7 +117,8 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
         print best_frames[0]
         near_frames.append(best_frames[0][1:])
     return near_frames
-      
+
+
 def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
     # Sum of squared distances (euclidean) against every frame:
     frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
@@ -126,6 +128,55 @@ def find_nearest_frame_for_one(this_frame, corpus_mfcc, ignore_frame_idx):
     near_frame_dist = dist_idx[0][0]
     near_frame_idx = dist_idx[0][1]
     return near_frame_idx, near_frame_dist
+
+# For the input file, find frames that are nearest in the corpus.
+# Return a list of the following format:
+#   (input frame start sec, input frame end sec, corpus filename, corpus frame start sec, corpus frame end sec)
+def find_nearest_frames_using_annoy(input_filename, corpus_filenames, winlen, winstep):
+    input_mfcc = filename_to_mfcc_frames(input_filename, winlen, winstep)
+    input_nframes = input_mfcc.shape[0]
+    dimension = input_mfcc.shape[1]
+
+    corpus = []
+    for corpus_filename in corpus_filenames:
+        corpus_mfcc = filename_to_mfcc_frames(corpus_filename, winlen, winstep)
+        if corpus_mfcc is not None:
+            corpus.append((corpus_filename, corpus_mfcc))
+
+    #Build an AnnoyIndex
+    mfcc_index, mfcc_list = build_index(corpus, dimension, input_filename)
+
+    # For each frame, find the nearest frame
+    near_frames = []
+    for frame_idx in range(min(1000, input_nframes)): #range(nframes):
+        this_frame = input_mfcc[frame_idx]
+        nearest_neighbor = mfcc_index.get_nns_by_vector(this_frame.tolist(), 1)[0]
+        corpus_filename, near_idx = mfcc_list[nearest_neighbor]
+        if corpus_filename == input_filename and near_idx == frame_idx:
+            nearest_neighbor = mfcc_index.get_nns_by_vector(this_frame.tolist(), 2)[1]
+            corpus_filename, near_idx = mfcc_list[nearest_neighbor]
+        near_frames.append(
+            (winstep * frame_idx,
+            winstep * frame_idx + winlen,
+            corpus_filename,
+            winstep * near_idx,
+            winstep * near_idx + winlen))
+    return near_frames
+      
+def build_index(corpus, dimension, input_filename):
+    print("Building Annoy index")
+    index = AnnoyIndex(dimension)
+    mfcc_list = []
+    i = 0
+    for filename, frames in corpus:
+        for index_in_file, mfcc in enumerate(frames):
+            if i%1000 == 0:
+                print i
+            mfcc_list.append((filename, index_in_file))
+            index.add_item(i, mfcc.tolist())
+            i += 1
+    index.build(-1)
+    return index, mfcc_list
 
 # Simple version of redub, that assumes all frame_locations are contiguous
 # Frame locations has the following format
@@ -203,5 +254,5 @@ if __name__ == "__main__":
         assert c.endswith(".mp3")
     assert args.output.endswith(".mp3")
 
-    frame_locations = find_nearest_frames(args.input, args.corpus, winlen, winstep)
+    frame_locations = find_nearest_frames_using_annoy(args.input, args.corpus, winlen, winstep)
     redub_overlay(frame_locations, args.output)
