@@ -23,7 +23,7 @@ FORCE_RESAMPLE = False          # This can be really slow
 ANN_NTREES = 10
 ANN_CANDIDATES = 10
 
-IGNORE_SAME_FRAME = False
+IGNORE_SAME_FRAME = True
 
 SEED = 0
 random.seed(SEED)
@@ -77,7 +77,18 @@ def perform_mfcc_on_filename(filename, opts):
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
 
+
+full_audiosegment_wave_cache = {}
 def read_audio_to_numpy(filename):
+    global full_audiosegment_wave_cache
+    if filename not in full_audiosegment_wave_cache:
+        (samplerate,signal) = read_audio_to_numpy_uncached(filename)
+        assert samplerate == desired_samplerate
+        full_audiosegment_wave_cache[filename] = (samplerate, signal)
+        print "Read audio from %s" % filename
+    return full_audiosegment_wave_cache[filename]
+
+def read_audio_to_numpy_uncached(filename):
     if filename.endswith(".mp3"):
         song = AudioSegment.from_mp3(filename)
         filename = filename.replace(".mp3", ".wav")
@@ -213,7 +224,7 @@ def redub(frame_locations, output_filename):
 def get_audiosegment(filename, start_sec, end_sec):
     start_ms = int(start_sec * 1000 + 0.5)
     end_ms = int(end_sec * 1000 + 0.5)
-    return full_audiosegment(filename)[start_ms:end_ms]
+    return read_audio_to_numpy(filename)[1][start_ms:end_ms]
 
 full_audiosegment_cache = {}
 def full_audiosegment(filename):
@@ -263,17 +274,7 @@ def redub_overlay(frame_locations, output_filename):
     print "Wrote new song to %s" % output_filename
 
 def get_audiosegment_wave(filename, start, end):
-    return full_audiosegment_wave(filename)[start:end]
-
-full_audiosegment_wave_cache = {}
-def full_audiosegment_wave(filename):
-    global full_audiosegment_wave_cache
-    if filename not in full_audiosegment_wave_cache:
-        (samplerate,signal) = read_audio_to_numpy(filename)
-        assert samplerate == desired_samplerate
-        full_audiosegment_wave_cache[filename] = signal
-        print "Read audio from %s" % filename
-    return full_audiosegment_wave_cache[filename]
+    return read_audio_to_numpy(filename)[1][start:end]
 
 def sec2sample(sec):
     return int(sec * desired_samplerate + 0.5)
@@ -317,12 +318,13 @@ def redub_overlay_wave(frame_locations, output_filename):
         to_avg = []
         for f in this_fragments:
             if f.shape[0] != cut_length:
-                print "Weird. Extracted cut of the wrong size"
+                print "Weird. Extracted cut of the wrong size. Expected = %d, received = %d" % (cut_length, f.shape[0])
                 continue
             else:
                 to_avg.append(f)
         total = to_avg[0].astype("float")
         for t in to_avg[1:]:
+            assert(total.shape == t.shape)
             total += t.astype("float")
         total /= len(to_avg)
         assert(total.shape[0] == cut_length)
