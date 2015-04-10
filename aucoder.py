@@ -4,6 +4,7 @@ import argparse
 import os.path
 import cPickle
 import tempfile
+import random
 
 from features import mfcc
 from features import logfbank
@@ -24,6 +25,13 @@ def window(iterable, size):
 # We can't work with files that don't have this desired_samplerate
 desired_samplerate = 44100
 FORCE_RESAMPLE = False          # This can be really slow
+
+ANN_NTREES = 100
+#ANN_NTREES = 10
+#ANN_SHORTLIST = 10
+
+SEED = 0
+random.seed(SEED)
 
 def filename_to_mfcc_frames(filename, winlen, winstep):
     samplerate = desired_samplerate
@@ -69,7 +77,7 @@ def perform_mfcc_on_filename(filename, opts):
     if (samplerate != desired_samplerate and FORCE_RESAMPLE):
         origsig = sig
         sig = resample(origsig, 1.0 * desired_samplerate/samplerate, 'sinc_best')
-        print("Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape))
+        print "Resampled file from rate %d to rate %d, shape %s to %s" % (samplerate, desired_samplerate, origsig.shape, sig.shape)
 
     mfcc_feat = mfcc(sig, **opts)
     return mfcc_feat
@@ -111,13 +119,17 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
     # For each frame, find the nearest frame
     dists = []
     near_frames = []
+    approx_dist_error = []
     for frame_idx in range(min(1000, input_nframes)): #range(nframes):
         this_frame = input_mfcc[frame_idx]
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
-        (near_dist2, corpus_filename2, near_idx2) = \
-            find_nearest_frame_exhaustive(this_frame, input_filename, frame_idx, corpus)
-        print (near_dist - near_dist2)
+        # Compute error against exhaustive
+        if random.random() < 0.01:
+            (near_dist2, corpus_filename2, near_idx2) = \
+                find_nearest_frame_exhaustive(this_frame, input_filename, frame_idx, corpus)
+            assert near_dist2 <= near_dist
+            approx_dist_error.append(near_dist - near_dist2)
 
         best_frame = (near_dist,
                       winstep * frame_idx,
@@ -125,11 +137,11 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
                       corpus_filename,
                       winstep * near_idx,
                       winstep * near_idx + winlen)
-#        print best_frame
         dists.append(best_frame[0])
         near_frames.append(best_frame[1:])
     dists = n.array(dists)
     print "DISTANCE median=%.3f, mean=%.3f" % (n.median(dists), n.mean(dists))
+    print "Average error (distance) because of approximate nearest neighbors: %.3f" % n.mean(approx_dist_error)
     return near_frames
 
 # Exhaustive technique to find the nearest frame
@@ -167,23 +179,24 @@ def find_nearest_frame_annoy(this_frame, input_filename, input_frame_idx, corpus
     corpus_mfcc = None
     for (filename, mfcc) in corpus:
         if filename == corpus_filename: corpus_mfcc = mfcc
-    near_dist = n.square(mfcc[near_idx] - this_frame).sum()
+    near_dist = n.square(corpus_mfcc[near_idx] - this_frame).sum()
     return near_dist, corpus_filename, near_idx
 
 def build_annoy_index(corpus, dimension):
-    print("Building Annoy index")
+    print "Adding to Annoy index"
     index = AnnoyIndex(dimension, "euclidean")
     mfcc_list = []
     i = 0
     for filename, frames in corpus:
+        print filename, frames.shape
         for index_in_file, mfcc in enumerate(frames):
-            if i%1000 == 0:
-                print i
             mfcc_list.append((filename, index_in_file))
             index.add_item(i, mfcc.tolist())
+            assert mfcc_list[i] == (filename, index_in_file)
             i += 1
+    print "Building Annoy index with %d trees" % ANN_NTREES
 #    index.build(-1)
-    index.build(100)
+    index.build(ANN_NTREES)
     return index, mfcc_list
 
 # Simple version of redub, that assumes all frame_locations are contiguous
