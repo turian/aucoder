@@ -26,9 +26,9 @@ def window(iterable, size):
 desired_samplerate = 44100
 FORCE_RESAMPLE = False          # This can be really slow
 
-ANN_NTREES = 100
-#ANN_NTREES = 10
-#ANN_SHORTLIST = 10
+#ANN_NTREES = 100
+ANN_NTREES = 10
+ANN_CANDIDATES = 10
 
 SEED = 0
 random.seed(SEED)
@@ -125,7 +125,7 @@ def find_nearest_frames(input_filename, corpus_filenames, winlen, winstep):
         (near_dist, corpus_filename, near_idx) = \
             find_nearest_frame_annoy(this_frame, input_filename, frame_idx, corpus)
         # Compute error against exhaustive
-        if random.random() < 0.01:
+        if len(approx_dist_error) < 30 and random.random() < 0.01:
             (near_dist2, corpus_filename2, near_idx2) = \
                 find_nearest_frame_exhaustive(this_frame, input_filename, frame_idx, corpus)
             assert near_dist2 <= near_dist
@@ -159,7 +159,7 @@ def find_nearest_frame_exhaustive(this_frame, input_filename, input_frame_idx, c
 
 def find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ignore_frame_idx):
     # Sum of squared distances (euclidean) against every frame:
-    frame_dist = n.square(corpus_mfcc - this_frame).sum(axis=1)
+    frame_dist = n.sqrt(n.square(corpus_mfcc - this_frame).sum(axis=1))
     dist_idx = [(dist, idx) for (idx, dist) in enumerate(frame_dist.tolist()) if idx != ignore_frame_idx]
     dist_idx.sort()
     
@@ -170,17 +170,20 @@ def find_nearest_frame_for_one_with_one_corpus_file(this_frame, corpus_mfcc, ign
 # Approx nearest neighbor technique to find the nearest frame
 # Return (distance, corpus file, corpus frame idx)
 def find_nearest_frame_annoy(this_frame, input_filename, input_frame_idx, corpus):
-    nearest_neighbor = annoy_mfcc_index.get_nns_by_vector(this_frame.tolist(), 1)[0]
-    corpus_filename, near_idx = annoy_mfcc_list[nearest_neighbor]
-    if corpus_filename == input_filename and near_idx == input_frame_idx:
-        nearest_neighbor = annoy_mfcc_index.get_nns_by_vector(this_frame.tolist(), 2)[1]
+    nearest_neighbors = annoy_mfcc_index.get_nns_by_vector(this_frame.tolist(), ANN_CANDIDATES)
+    candidates = []
+    for nearest_neighbor in nearest_neighbors:
         corpus_filename, near_idx = annoy_mfcc_list[nearest_neighbor]
-
-    corpus_mfcc = None
-    for (filename, mfcc) in corpus:
-        if filename == corpus_filename: corpus_mfcc = mfcc
-    near_dist = n.square(corpus_mfcc[near_idx] - this_frame).sum()
-    return near_dist, corpus_filename, near_idx
+        if corpus_filename == input_filename and near_idx == input_frame_idx: continue
+        corpus_mfcc = None
+        for (filename, mfcc) in corpus:
+            if filename == corpus_filename: corpus_mfcc = mfcc
+        near_dist = n.sqrt(n.square(corpus_mfcc[near_idx] - this_frame).sum())
+        candidates.append((near_dist, corpus_filename, near_idx))
+    candidates.sort()
+    # If nothing is returned, try ANN_CANDIDATES > 1
+    # Otherwise, we post filter and disallow you to return the frame being used to search
+    return candidates[0]
 
 def build_annoy_index(corpus, dimension):
     print "Adding to Annoy index"
