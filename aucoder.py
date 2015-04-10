@@ -240,7 +240,8 @@ def redub_overlay_wave(frame_locations, output_filename):
 
     fragments = []
     for (j, (cut_start, cut_end)) in enumerate(cuts):
-        print j, len(cuts)
+        if j % 100 == 0:
+            print "Making cut %d of %d" % (j, len(cuts))
         cut_length = cut_end - cut_start
         this_fragments = []
         # TODO: this nested loop can be a bit slow, but we're always searching in
